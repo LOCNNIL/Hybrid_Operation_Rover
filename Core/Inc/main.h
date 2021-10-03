@@ -32,7 +32,8 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdint.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -60,15 +61,14 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define LED_BLUE_Pin GPIO_PIN_13
 #define LED_BLUE_GPIO_Port GPIOC
-#define ULTRASONIC_TX_Pin GPIO_PIN_2
-#define ULTRASONIC_TX_GPIO_Port GPIOA
-#define ULTRASONIC_RX_Pin GPIO_PIN_3
-#define ULTRASONIC_RX_GPIO_Port GPIOA
-#define INF_DIR_Pin GPIO_PIN_5
+#define BUT_Pin GPIO_PIN_0
+#define BUT_GPIO_Port GPIOA
+#define BUT_EXTI_IRQn EXTI0_IRQn
+#define INF_DIR_Pin GPIO_PIN_1
 #define INF_DIR_GPIO_Port GPIOA
-#define INF_ESQ_Pin GPIO_PIN_6
+#define INF_ESQ_Pin GPIO_PIN_5
 #define INF_ESQ_GPIO_Port GPIOA
-#define INF_RE_Pin GPIO_PIN_7
+#define INF_RE_Pin GPIO_PIN_6
 #define INF_RE_GPIO_Port GPIOA
 #define IN4_Pin GPIO_PIN_12
 #define IN4_GPIO_Port GPIOB
@@ -82,6 +82,10 @@ void Error_Handler(void);
 #define MOT_DIR_GPIO_Port GPIOA
 #define MOT_ESQ_Pin GPIO_PIN_9
 #define MOT_ESQ_GPIO_Port GPIOA
+#define ECHO_Pin GPIO_PIN_15
+#define ECHO_GPIO_Port GPIOA
+#define TRIG_Pin GPIO_PIN_3
+#define TRIG_GPIO_Port GPIOB
 #define BLE_TX_Pin GPIO_PIN_6
 #define BLE_TX_GPIO_Port GPIOB
 #define BLE_RX_Pin GPIO_PIN_7
