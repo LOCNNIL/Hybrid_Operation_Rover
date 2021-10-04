@@ -16,7 +16,6 @@
 
 static Velocidades atual;
 extern TIM_HandleTypeDef htim1;
-static float tensao=87;
 
 void stop(void);
 void re(uint8_t percentage);
@@ -29,15 +28,15 @@ void speed(uint8_t percentage);
 void set_speed(uint8_t DC, uint8_t motor);
 
 void speed(uint8_t percentage){
-	atual.VEL_DIR = percentage;
-	atual.VEL_ESQ = (uint8_t)1.02*percentage;
+	atual.VEL_DIR = (uint8_t)percentage+1;
+	atual.VEL_ESQ = percentage;
 }
 
 
 uint32_t time_wait_ms(void){
 	/*float tempo = (7500/((tensao*30*sqrt(atual.VEL_DIR)) - 40)) + 100;*/
 	float tempo = -2*atual.VEL_DIR + 240;
-	atual.VEL_ESQ = 1.02*atual.VEL_DIR;
+	atual.VEL_DIR = atual.VEL_ESQ+1;
 	return (uint32_t)tempo;
 }
 
@@ -96,7 +95,7 @@ void re(uint8_t percentage) {
 
 void direita(void){
 	/*reduce duty cicle on right road and frent*/
-	atual.VEL_DIR = (uint8_t)(atual.VEL_DIR*0.7);
+	atual.VEL_DIR = (uint8_t)(atual.VEL_DIR-3);
 	__HAL_TIM_SET_COMPARE(&htim1, MOTOR_DIR, (uint8_t)atual.VEL_DIR);
 	__HAL_TIM_SET_COMPARE(&htim1, MOTOR_ESQ, (uint8_t)atual.VEL_ESQ);
 	IN1_ON;
@@ -107,7 +106,7 @@ void direita(void){
 
 void esquerda(void){
 	/*reduce duty cicle on right road and frent*/
-	atual.VEL_ESQ = (uint8_t)(atual.VEL_ESQ*0.7);
+	atual.VEL_ESQ = (uint8_t)(atual.VEL_ESQ-3);
 	__HAL_TIM_SET_COMPARE(&htim1, MOTOR_DIR, (uint8_t)atual.VEL_DIR);
 	__HAL_TIM_SET_COMPARE(&htim1, MOTOR_ESQ, (uint8_t)atual.VEL_ESQ);
 	IN1_ON;
