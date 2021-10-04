@@ -78,29 +78,51 @@ static GPIO_PinState pin_re_old = GPIO_PIN_SET;
 /* USER CODE END Variables */
 /* Definitions for Autonomus_Mode */
 osThreadId_t Autonomus_ModeHandle;
-const osThreadAttr_t Autonomus_Mode_attributes =
-		{ .name = "Autonomus_Mode", .stack_size = 128 * 4, .priority =
-				(osPriority_t) osPriorityBelowNormal, };
+const osThreadAttr_t Autonomus_Mode_attributes = {
+  .name = "Autonomus_Mode",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityBelowNormal,
+};
 /* Definitions for Manual_Mode */
 osThreadId_t Manual_ModeHandle;
-const osThreadAttr_t Manual_Mode_attributes = { .name = "Manual_Mode",
-		.stack_size = 128 * 4, .priority = (osPriority_t) osPriorityLow, };
+const osThreadAttr_t Manual_Mode_attributes = {
+  .name = "Manual_Mode",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* Definitions for SensorsReading */
 osThreadId_t SensorsReadingHandle;
-const osThreadAttr_t SensorsReading_attributes = { .name = "SensorsReading",
-		.stack_size = 64 * 4, .priority = (osPriority_t) osPriorityNormal, };
+const osThreadAttr_t SensorsReading_attributes = {
+  .name = "SensorsReading",
+  .stack_size = 64 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* Definitions for Ultrasonic_Read */
 osThreadId_t Ultrasonic_ReadHandle;
-const osThreadAttr_t Ultrasonic_Read_attributes = { .name = "Ultrasonic_Read",
-		.stack_size = 64 * 4, .priority = (osPriority_t) osPriorityNormal, };
+const osThreadAttr_t Ultrasonic_Read_attributes = {
+  .name = "Ultrasonic_Read",
+  .stack_size = 64 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* Definitions for IDLE_Task */
 osThreadId_t IDLE_TaskHandle;
-const osThreadAttr_t IDLE_Task_attributes = { .name = "IDLE_Task", .stack_size =
-		64 * 4, .priority = (osPriority_t) osPriorityLow, };
+const osThreadAttr_t IDLE_Task_attributes = {
+  .name = "IDLE_Task",
+  .stack_size = 64 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for Bluetooth */
+osThreadId_t BluetoothHandle;
+const osThreadAttr_t Bluetooth_attributes = {
+  .name = "Bluetooth",
+  .stack_size = 64 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* Definitions for Sensors_State */
 osMessageQueueId_t Sensors_StateHandle;
-const osMessageQueueAttr_t Sensors_State_attributes =
-		{ .name = "Sensors_State" };
+const osMessageQueueAttr_t Sensors_State_attributes = {
+  .name = "Sensors_State"
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -112,72 +134,72 @@ void Manual(void *argument);
 void Sensors(void *argument);
 void Ultrasonic(void *argument);
 void IDLE(void *argument);
+void BLE_Comun(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
 void MX_FREERTOS_Init(void) {
-	/* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
-	/* USER CODE END Init */
+  /* USER CODE END Init */
 
-	/* USER CODE BEGIN RTOS_MUTEX */
+  /* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
-	/* USER CODE END RTOS_MUTEX */
+  /* USER CODE END RTOS_MUTEX */
 
-	/* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
-	/* USER CODE END RTOS_SEMAPHORES */
+  /* USER CODE END RTOS_SEMAPHORES */
 
-	/* USER CODE BEGIN RTOS_TIMERS */
+  /* USER CODE BEGIN RTOS_TIMERS */
 	/* start timers, add new ones, ... */
-	/* USER CODE END RTOS_TIMERS */
+  /* USER CODE END RTOS_TIMERS */
 
-	/* Create the queue(s) */
-	/* creation of Sensors_State */
-	Sensors_StateHandle = osMessageQueueNew(3, sizeof(uint8_t),
-			&Sensors_State_attributes);
+  /* Create the queue(s) */
+  /* creation of Sensors_State */
+  Sensors_StateHandle = osMessageQueueNew (3, sizeof(uint8_t), &Sensors_State_attributes);
 
-	/* USER CODE BEGIN RTOS_QUEUES */
+  /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
 	if (Sensors_StateHandle == NULL) {
 		Error_Handler();
 	}
-	/* USER CODE END RTOS_QUEUES */
+  /* USER CODE END RTOS_QUEUES */
 
-	/* Create the thread(s) */
-	/* creation of Autonomus_Mode */
-	Autonomus_ModeHandle = osThreadNew(Autonomus, NULL,
-			&Autonomus_Mode_attributes);
+  /* Create the thread(s) */
+  /* creation of Autonomus_Mode */
+  Autonomus_ModeHandle = osThreadNew(Autonomus, NULL, &Autonomus_Mode_attributes);
 
-	/* creation of Manual_Mode */
-	Manual_ModeHandle = osThreadNew(Manual, NULL, &Manual_Mode_attributes);
+  /* creation of Manual_Mode */
+  Manual_ModeHandle = osThreadNew(Manual, NULL, &Manual_Mode_attributes);
 
-	/* creation of SensorsReading */
-	SensorsReadingHandle = osThreadNew(Sensors, NULL,
-			&SensorsReading_attributes);
+  /* creation of SensorsReading */
+  SensorsReadingHandle = osThreadNew(Sensors, NULL, &SensorsReading_attributes);
 
-	/* creation of Ultrasonic_Read */
-	Ultrasonic_ReadHandle = osThreadNew(Ultrasonic, NULL,
-			&Ultrasonic_Read_attributes);
+  /* creation of Ultrasonic_Read */
+  Ultrasonic_ReadHandle = osThreadNew(Ultrasonic, NULL, &Ultrasonic_Read_attributes);
 
-	/* creation of IDLE_Task */
-	IDLE_TaskHandle = osThreadNew(IDLE, NULL, &IDLE_Task_attributes);
+  /* creation of IDLE_Task */
+  IDLE_TaskHandle = osThreadNew(IDLE, NULL, &IDLE_Task_attributes);
 
-	/* USER CODE BEGIN RTOS_THREADS */
+  /* creation of Bluetooth */
+  BluetoothHandle = osThreadNew(BLE_Comun, NULL, &Bluetooth_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
 
 	osThreadSuspend(Autonomus_ModeHandle);
 	osThreadSuspend(Manual_ModeHandle);
-	/* USER CODE END RTOS_THREADS */
+  /* USER CODE END RTOS_THREADS */
 
-	/* USER CODE BEGIN RTOS_EVENTS */
+  /* USER CODE BEGIN RTOS_EVENTS */
 	/* add events, ... */
-	/* USER CODE END RTOS_EVENTS */
+  /* USER CODE END RTOS_EVENTS */
 
 }
 
@@ -188,16 +210,17 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_Autonomus */
-void Autonomus(void *argument) {
-	/* USER CODE BEGIN Autonomus */
-	static uint8_t veloc = 15;
+void Autonomus(void *argument)
+{
+  /* USER CODE BEGIN Autonomus */
+	static uint8_t veloc = 20;
 	/*	static GPIO_PinState pin_dir;
 	 static GPIO_PinState pin_esq;
 	 static GPIO_PinState pin_re;*/
 	static uint8_t min_dist = 10;
 	static uint32_t decisao;
 
-	const uint8_t REFdebounce = 5;
+	const uint8_t REFdebounce = 10;
 	static uint8_t in1_0_dir = 0;
 	static uint8_t in1_1_dir = 0;
 	static uint8_t in1_0_esq = 0;
@@ -305,7 +328,7 @@ void Autonomus(void *argument) {
 		}
 		osDelay(10);
 	}
-	/* USER CODE END Autonomus */
+  /* USER CODE END Autonomus */
 }
 
 /* USER CODE BEGIN Header_Manual */
@@ -315,13 +338,14 @@ void Autonomus(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_Manual */
-void Manual(void *argument) {
-	/* USER CODE BEGIN Manual */
+void Manual(void *argument)
+{
+  /* USER CODE BEGIN Manual */
 	/* Infinite loop */
 	for (;;) {
 		osDelay(1);
 	}
-	/* USER CODE END Manual */
+  /* USER CODE END Manual */
 }
 
 /* USER CODE BEGIN Header_Sensors */
@@ -331,8 +355,9 @@ void Manual(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_Sensors */
-void Sensors(void *argument) {
-	/* USER CODE BEGIN Sensors */
+void Sensors(void *argument)
+{
+  /* USER CODE BEGIN Sensors */
 	/*static GPIO_PinState pin_dir=GPIO_PIN_SET;
 	 static GPIO_PinState pin_esq=GPIO_PIN_SET;
 	 static GPIO_PinState pin_re=GPIO_PIN_SET;*/
@@ -353,7 +378,7 @@ void Sensors(void *argument) {
 		 osMessageQueuePut(Sensors_StateHandle, &pin_re, osPriorityNormal, 5U);*/
 		osDelay(2);
 	}
-	/* USER CODE END Sensors */
+  /* USER CODE END Sensors */
 }
 
 /* USER CODE BEGIN Header_Ultrasonic */
@@ -363,8 +388,9 @@ void Sensors(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_Ultrasonic */
-void Ultrasonic(void *argument) {
-	/* USER CODE BEGIN Ultrasonic */
+void Ultrasonic(void *argument)
+{
+  /* USER CODE BEGIN Ultrasonic */
 	HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
 
 	/* Infinite loop */
@@ -372,7 +398,7 @@ void Ultrasonic(void *argument) {
 		HCSR04_Read();
 		osDelay(100);
 	}
-	/* USER CODE END Ultrasonic */
+  /* USER CODE END Ultrasonic */
 }
 
 /* USER CODE BEGIN Header_IDLE */
@@ -382,8 +408,9 @@ void Ultrasonic(void *argument) {
  * @retval None
  */
 /* USER CODE END Header_IDLE */
-void IDLE(void *argument) {
-	/* USER CODE BEGIN IDLE */
+void IDLE(void *argument)
+{
+  /* USER CODE BEGIN IDLE */
 	uint32_t flagsX;
 	/* Infinite loop */
 	for (;;) {
@@ -393,7 +420,25 @@ void IDLE(void *argument) {
 		osThreadResume(Autonomus_ModeHandle);
 		osDelay(1);
 	}
-	/* USER CODE END IDLE */
+  /* USER CODE END IDLE */
+}
+
+/* USER CODE BEGIN Header_BLE_Comun */
+/**
+* @brief Function implementing the Bluetooth thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_BLE_Comun */
+void BLE_Comun(void *argument)
+{
+  /* USER CODE BEGIN BLE_Comun */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END BLE_Comun */
 }
 
 /* Private application code --------------------------------------------------*/
