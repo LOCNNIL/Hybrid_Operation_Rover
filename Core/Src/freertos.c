@@ -28,7 +28,10 @@
 /* USER CODE BEGIN Includes */
 #include "stm32f4xx_hal.h"
 #include "gpio.h"
+#include "usart.h"
 #include "stm32f401xc.h"
+#include "dma.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,6 +43,8 @@
 /* USER CODE BEGIN PD */
 #define TURN_ON_AUTONOMUS 	(1<<0)	// 0b00000000000000000000000000000001	#01
 #define TURN_OFF_AUTONOMUS	(1<<1)	// 0b00000000000000000000000000000010	#02
+#define TURN_ON_MANUAL 		(1<<2)	// 0b00000000000000000000000000000100	#04
+#define TURN_OFF_MANUAL		(1<<3)	// 0b00000000000000000000000000001000	#08
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,6 +58,9 @@
 /* USER CODE BEGIN Variables */
 extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
+extern UART_HandleTypeDef huart1;
+extern DMA_HandleTypeDef hdma_usart1_rx;
+extern DMA_HandleTypeDef hdma_usart1_tx;
 
 uint32_t IC_Val1 = 0;
 uint32_t IC_Val2 = 0;
@@ -71,9 +79,11 @@ static GPIO_PinState pin_dir = GPIO_PIN_SET;
 static GPIO_PinState pin_esq = GPIO_PIN_SET;
 static GPIO_PinState pin_re = GPIO_PIN_SET;
 
-static GPIO_PinState pin_dir_old = GPIO_PIN_SET;
-static GPIO_PinState pin_esq_old = GPIO_PIN_SET;
-static GPIO_PinState pin_re_old = GPIO_PIN_SET;
+static uint8_t UART1_rxBuffer[5];
+
+HAL_StatusTypeDef feedback_uart;
+static uint8_t sucess=0;
+uint8_t count_ble=0;
 
 /* USER CODE END Variables */
 /* Definitions for Autonomus_Mode */
@@ -88,7 +98,7 @@ osThreadId_t Manual_ModeHandle;
 const osThreadAttr_t Manual_Mode_attributes = {
   .name = "Manual_Mode",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for SensorsReading */
 osThreadId_t SensorsReadingHandle;
@@ -122,6 +132,16 @@ const osThreadAttr_t Bluetooth_attributes = {
 osMessageQueueId_t Sensors_StateHandle;
 const osMessageQueueAttr_t Sensors_State_attributes = {
   .name = "Sensors_State"
+};
+/* Definitions for Bluetooth_comands */
+osMessageQueueId_t Bluetooth_comandsHandle;
+const osMessageQueueAttr_t Bluetooth_comands_attributes = {
+  .name = "Bluetooth_comands"
+};
+/* Definitions for Operation_Modes */
+osEventFlagsId_t Operation_ModesHandle;
+const osEventFlagsAttr_t Operation_Modes_attributes = {
+  .name = "Operation_Modes"
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -164,6 +184,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of Sensors_State */
   Sensors_StateHandle = osMessageQueueNew (3, sizeof(uint8_t), &Sensors_State_attributes);
 
+  /* creation of Bluetooth_comands */
+  Bluetooth_comandsHandle = osMessageQueueNew (5, sizeof(uint8_t), &Bluetooth_comands_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
 	if (Sensors_StateHandle == NULL) {
@@ -196,6 +219,10 @@ void MX_FREERTOS_Init(void) {
 	osThreadSuspend(Autonomus_ModeHandle);
 	osThreadSuspend(Manual_ModeHandle);
   /* USER CODE END RTOS_THREADS */
+
+  /* Create the event(s) */
+  /* creation of Operation_Modes */
+  Operation_ModesHandle = osEventFlagsNew(&Operation_Modes_attributes);
 
   /* USER CODE BEGIN RTOS_EVENTS */
 	/* add events, ... */
@@ -342,8 +369,44 @@ void Manual(void *argument)
 {
   /* USER CODE BEGIN Manual */
 	/* Infinite loop */
+	static uint8_t commands[5];
+	static uint8_t comando;
+	static uint8_t parada;
+	static uint8_t velocidade_lida=10;
+	static uint8_t velocidade=10;
 	for (;;) {
-		osDelay(1);
+		osMessageQueueGet(Bluetooth_comandsHandle, &commands, osPriorityNormal, 5U);
+		if((commands[0]!='J') &&(commands[0]!='K')){
+			sscanf(commands, "%d\n%d\n",&comando, &parada);
+		}else{
+			sscanf(commands, "J%d\n", &velocidade_lida);
+		}
+		velocidade = (uint8_t)(velocidade_lida/1.8);
+		switch(comando){
+		case 'S':
+			stop();
+			break;
+		case 'F':
+			frente(velocidade);
+			break;
+		case 'L':
+			rot_esq(velocidade);
+			break;
+		case 'R':
+			rot_dir(velocidade);
+			break;
+		case 'G':
+			re(velocidade);
+			break;
+		case 'E':
+			direita();
+			break;
+		case 'Q':
+			esquerda();
+			break;
+		}
+
+		osDelay(5);
 	}
   /* USER CODE END Manual */
 }
@@ -411,13 +474,19 @@ void Ultrasonic(void *argument)
 void IDLE(void *argument)
 {
   /* USER CODE BEGIN IDLE */
+	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 10);
 	uint32_t flagsX;
 	/* Infinite loop */
 	for (;;) {
-		flagsX = osThreadFlagsWait(TURN_ON_AUTONOMUS, osFlagsWaitAll,
-				osWaitForever);
-		osDelay(2000);
-		osThreadResume(Autonomus_ModeHandle);
+		flagsX =  osEventFlagsWait(Operation_ModesHandle,TURN_ON_AUTONOMUS|TURN_ON_MANUAL, osFlagsWaitAny, osWaitForever);
+		if(flagsX&TURN_ON_AUTONOMUS){
+			osDelay(2000);
+			osThreadResume(Autonomus_ModeHandle);
+			osThreadSuspend(Manual_ModeHandle);
+		}else if(flagsX &TURN_ON_MANUAL){
+			osThreadResume(Manual_ModeHandle);
+			osThreadSuspend(Autonomus_ModeHandle);
+		}
 		osDelay(1);
 	}
   /* USER CODE END IDLE */
@@ -436,7 +505,9 @@ void BLE_Comun(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	/*feedback_uart = HAL_UART_Transmit(&huart1, count_ble, 1, 1000U);*/
+	count_ble++;
+    osDelay(200);
   }
   /* USER CODE END BLE_Comun */
 }
@@ -448,9 +519,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == BUT_Pin) {
 		stop();
 		BUT_COUNT++;
-		LED_OFF
-		;
-		osThreadFlagsSet(IDLE_TaskHandle, TURN_ON_AUTONOMUS);
+		LED_OFF;
+		osEventFlagsSet(Operation_ModesHandle, TURN_ON_AUTONOMUS);
 	} else {
 		ERROR_COUNT++;
 	}
@@ -503,6 +573,18 @@ void HCSR04_Read(void) {
 
 	__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC1);
 }
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 5);
+	if(UART1_rxBuffer[0]=='X'){
+		osEventFlagsSet(Operation_ModesHandle, TURN_ON_MANUAL);
+	}else if(UART1_rxBuffer[0]=='Y'){
+		osThreadFlagsSet(IDLE_TaskHandle, TURN_ON_AUTONOMUS);
+	}
+	osMessageQueuePut(Bluetooth_comandsHandle, &UART1_rxBuffer, osPriorityNormal, 0U);
+	sucess++;
+}
+
 /* USER CODE END Application */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
