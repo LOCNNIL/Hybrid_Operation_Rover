@@ -240,7 +240,6 @@ void Autonomus(void *argument) {
 			in1_0_re++;
 			in1_1_re = 0;
 			if (in1_0_re >= REFdebounce) {
-
 				in1_1_re = REFdebounce + 1;
 				stop();
 				frente(veloc);
@@ -277,15 +276,14 @@ void Autonomus(void *argument) {
 			in1_1_dir++;
 			if (in1_1_dir >= REFdebounce) {
 				in1_1_dir = REFdebounce + 1;
-				frente(veloc);
 			}
 		}
 
 		if (pin_esq == GPIO_PIN_RESET) {
 			in1_0_esq++;
 			in1_1_esq = 0;
-			if (in1_0_dir >= REFdebounce) {
-				in1_1_dir = REFdebounce + 1;
+			if (in1_0_esq >= REFdebounce) {
+				in1_1_esq = REFdebounce + 1;
 				stop();
 				re(veloc);
 				osDelay(time_wait_ms() + 100);
@@ -299,7 +297,6 @@ void Autonomus(void *argument) {
 			in1_1_esq++;
 			if (in1_1_esq >= REFdebounce) {
 				in1_1_esq = REFdebounce + 1;
-				frente(veloc);
 			}
 		}
 
