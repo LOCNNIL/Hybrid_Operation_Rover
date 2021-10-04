@@ -32,6 +32,7 @@
 #include "stm32f401xc.h"
 #include "dma.h"
 #include "stdio.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -79,7 +80,7 @@ static GPIO_PinState pin_dir = GPIO_PIN_SET;
 static GPIO_PinState pin_esq = GPIO_PIN_SET;
 static GPIO_PinState pin_re = GPIO_PIN_SET;
 
-static uint8_t UART1_rxBuffer[5];
+static uint8_t UART1_rxBuffer[6];
 
 HAL_StatusTypeDef feedback_uart;
 static uint8_t sucess=0;
@@ -121,13 +122,6 @@ const osThreadAttr_t IDLE_Task_attributes = {
   .stack_size = 64 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
-/* Definitions for Bluetooth */
-osThreadId_t BluetoothHandle;
-const osThreadAttr_t Bluetooth_attributes = {
-  .name = "Bluetooth",
-  .stack_size = 64 * 4,
-  .priority = (osPriority_t) osPriorityLow,
-};
 /* Definitions for Sensors_State */
 osMessageQueueId_t Sensors_StateHandle;
 const osMessageQueueAttr_t Sensors_State_attributes = {
@@ -154,7 +148,6 @@ void Manual(void *argument);
 void Sensors(void *argument);
 void Ultrasonic(void *argument);
 void IDLE(void *argument);
-void BLE_Comun(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -210,9 +203,6 @@ void MX_FREERTOS_Init(void) {
   /* creation of IDLE_Task */
   IDLE_TaskHandle = osThreadNew(IDLE, NULL, &IDLE_Task_attributes);
 
-  /* creation of Bluetooth */
-  BluetoothHandle = osThreadNew(BLE_Comun, NULL, &Bluetooth_attributes);
-
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
 
@@ -262,9 +252,6 @@ void Autonomus(void *argument)
 
 	/* Infinite loop */
 	for (;;) {
-		/*		osMessageQueueGet(Sensors_StateHandle, &pin_dir, osPriorityNormal, 10U);
-		 osMessageQueueGet(Sensors_StateHandle, &pin_esq, osPriorityNormal, 10U);
-		 osMessageQueueGet(Sensors_StateHandle, &pin_re, osPriorityNormal, 10U);*/
 		osMessageQueueGet(Sensors_StateHandle, &Distancia, osPriorityNormal,
 				0U);
 		if (Distancia <= min_dist) {
@@ -369,44 +356,56 @@ void Manual(void *argument)
 {
   /* USER CODE BEGIN Manual */
 	/* Infinite loop */
+	static uint8_t i;
 	static uint8_t commands[5];
-	static uint8_t comando;
+	static char comando[2];
 	static uint8_t parada;
-	static uint8_t velocidade_lida=10;
-	static uint8_t velocidade=10;
+	static int velocidade_lida=27;
+	static uint8_t velocidade=15;
 	for (;;) {
-		osMessageQueueGet(Bluetooth_comandsHandle, &commands, osPriorityNormal, 5U);
-		if((commands[0]!='J') &&(commands[0]!='K')){
-			sscanf(commands, "%d\n%d\n",&comando, &parada);
-		}else{
+		osMessageQueueGet(Bluetooth_comandsHandle, &commands,
+				osPriorityRealtime, 0U);
+		if ((commands[0] == 'J')) {
 			sscanf(commands, "J%d\n", &velocidade_lida);
+		} else {
+			sscanf(commands, "%c\n%c\n", &comando[1], &comando[2]);
+			for (i = 0; i < 2; i++) {
+				switch (comando[i]) {
+				case 'S':
+					stop();
+					break;
+				case 'F':
+					frente(velocidade);
+					break;
+				case 'L':
+					rot_esq(velocidade);
+					break;
+				case 'R':
+					rot_dir(velocidade);
+					break;
+				case 'G':
+					re(velocidade);
+					break;
+				case 'E':
+					direita();
+					break;
+				case 'Q':
+					esquerda();
+					break;
+				default:
+					/*stop();*/
+					break;
+				}
+			}
 		}
-		velocidade = (uint8_t)(velocidade_lida/1.8);
-		switch(comando){
-		case 'S':
-			stop();
-			break;
-		case 'F':
-			frente(velocidade);
-			break;
-		case 'L':
-			rot_esq(velocidade);
-			break;
-		case 'R':
-			rot_dir(velocidade);
-			break;
-		case 'G':
-			re(velocidade);
-			break;
-		case 'E':
-			direita();
-			break;
-		case 'Q':
-			esquerda();
-			break;
+		if (velocidade_lida >= 100) {
+			velocidade = 100;
+		} else {
+			velocidade = (uint8_t) velocidade_lida;
 		}
 
-		osDelay(5);
+		memset(commands, 0x0, sizeof(commands));
+		osDelay(2);
 	}
   /* USER CODE END Manual */
 }
@@ -421,24 +420,14 @@ void Manual(void *argument)
 void Sensors(void *argument)
 {
   /* USER CODE BEGIN Sensors */
-	/*static GPIO_PinState pin_dir=GPIO_PIN_SET;
-	 static GPIO_PinState pin_esq=GPIO_PIN_SET;
-	 static GPIO_PinState pin_re=GPIO_PIN_SET;*/
-
-	/*	osMessageQueuePut(Sensors_StateHandle, &pin_dir, osPriorityNormal, 2U);
-	 osMessageQueuePut(Sensors_StateHandle, &pin_esq, osPriorityNormal, 2U);
-	 osMessageQueuePut(Sensors_StateHandle, &pin_re, osPriorityNormal, 2U);*/
 	/* Infinite loop */
+
 	for (;;) {
 		/*Lendo o Estado de sensores infravermelho*/
 		pin_re = HAL_GPIO_ReadPin(INF_RE_GPIO_Port, INF_RE_Pin);
 		pin_esq = HAL_GPIO_ReadPin(INF_ESQ_GPIO_Port, INF_ESQ_Pin);
 		pin_dir = HAL_GPIO_ReadPin(INF_DIR_GPIO_Port, INF_DIR_Pin);
 
-		/*Enviando estados de sensores infravermelho*/
-		/*		osMessageQueuePut(Sensors_StateHandle, &pin_dir, osPriorityNormal, 5U);
-		 osMessageQueuePut(Sensors_StateHandle, &pin_esq, osPriorityNormal, 5U);
-		 osMessageQueuePut(Sensors_StateHandle, &pin_re, osPriorityNormal, 5U);*/
 		osDelay(2);
 	}
   /* USER CODE END Sensors */
@@ -484,32 +473,13 @@ void IDLE(void *argument)
 			osThreadResume(Autonomus_ModeHandle);
 			osThreadSuspend(Manual_ModeHandle);
 		}else if(flagsX &TURN_ON_MANUAL){
+			stop();
 			osThreadResume(Manual_ModeHandle);
 			osThreadSuspend(Autonomus_ModeHandle);
 		}
 		osDelay(1);
 	}
   /* USER CODE END IDLE */
-}
-
-/* USER CODE BEGIN Header_BLE_Comun */
-/**
-* @brief Function implementing the Bluetooth thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_BLE_Comun */
-void BLE_Comun(void *argument)
-{
-  /* USER CODE BEGIN BLE_Comun */
-  /* Infinite loop */
-  for(;;)
-  {
-	/*feedback_uart = HAL_UART_Transmit(&huart1, count_ble, 1, 1000U);*/
-	count_ble++;
-    osDelay(200);
-  }
-  /* USER CODE END BLE_Comun */
 }
 
 /* Private application code --------------------------------------------------*/
@@ -579,10 +549,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if(UART1_rxBuffer[0]=='X'){
 		osEventFlagsSet(Operation_ModesHandle, TURN_ON_MANUAL);
 	}else if(UART1_rxBuffer[0]=='Y'){
-		osThreadFlagsSet(IDLE_TaskHandle, TURN_ON_AUTONOMUS);
+		osEventFlagsSet(Operation_ModesHandle, TURN_ON_AUTONOMUS);
 	}
-	osMessageQueuePut(Bluetooth_comandsHandle, &UART1_rxBuffer, osPriorityNormal, 0U);
-	sucess++;
+	osMessageQueuePut(Bluetooth_comandsHandle, &UART1_rxBuffer, osPriorityRealtime, 0U);
 }
 
 /* USER CODE END Application */
