@@ -64,12 +64,6 @@ void Error_Handler(void);
 #define BUT_Pin GPIO_PIN_0
 #define BUT_GPIO_Port GPIOA
 #define BUT_EXTI_IRQn EXTI0_IRQn
-#define INF_DIR_Pin GPIO_PIN_1
-#define INF_DIR_GPIO_Port GPIOA
-#define INF_ESQ_Pin GPIO_PIN_5
-#define INF_ESQ_GPIO_Port GPIOA
-#define INF_RE_Pin GPIO_PIN_6
-#define INF_RE_GPIO_Port GPIOA
 #define IN4_Pin GPIO_PIN_12
 #define IN4_GPIO_Port GPIOB
 #define IN3_Pin GPIO_PIN_13
@@ -86,10 +80,16 @@ void Error_Handler(void);
 #define ECHO_GPIO_Port GPIOA
 #define TRIG_Pin GPIO_PIN_3
 #define TRIG_GPIO_Port GPIOB
+#define INF_ESQ_Pin GPIO_PIN_4
+#define INF_ESQ_GPIO_Port GPIOB
+#define INF_RE_Pin GPIO_PIN_5
+#define INF_RE_GPIO_Port GPIOB
 #define BLE_TX_Pin GPIO_PIN_6
 #define BLE_TX_GPIO_Port GPIOB
 #define BLE_RX_Pin GPIO_PIN_7
 #define BLE_RX_GPIO_Port GPIOB
+#define INF_DIR_Pin GPIO_PIN_8
+#define INF_DIR_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

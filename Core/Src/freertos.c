@@ -80,10 +80,13 @@ static GPIO_PinState pin_dir = GPIO_PIN_SET;
 static GPIO_PinState pin_esq = GPIO_PIN_SET;
 static GPIO_PinState pin_re = GPIO_PIN_SET;
 
-static uint8_t UART1_rxBuffer[6];
+
+uint8_t velocidade=15;
+uint8_t comando[5];
+uint8_t UART1_rxBuffer[5];
+uint8_t to_send[5];
 
 HAL_StatusTypeDef feedback_uart;
-static uint8_t sucess=0;
 uint8_t count_ble=0;
 
 /* USER CODE END Variables */
@@ -178,7 +181,7 @@ void MX_FREERTOS_Init(void) {
   Sensors_StateHandle = osMessageQueueNew (3, sizeof(uint8_t), &Sensors_State_attributes);
 
   /* creation of Bluetooth_comands */
-  Bluetooth_comandsHandle = osMessageQueueNew (5, sizeof(uint8_t), &Bluetooth_comands_attributes);
+  Bluetooth_comandsHandle = osMessageQueueNew (8, sizeof(uint8_t), &Bluetooth_comands_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
@@ -208,6 +211,8 @@ void MX_FREERTOS_Init(void) {
 
 	osThreadSuspend(Autonomus_ModeHandle);
 	osThreadSuspend(Manual_ModeHandle);
+	osThreadSuspend(SensorsReadingHandle);
+	osThreadSuspend(Ultrasonic_ReadHandle);
   /* USER CODE END RTOS_THREADS */
 
   /* Create the event(s) */
@@ -237,7 +242,7 @@ void Autonomus(void *argument)
 	static uint8_t min_dist = 10;
 	static uint32_t decisao;
 
-	const uint8_t REFdebounce = 10;
+	const uint8_t REFdebounce = 5;
 	static uint8_t in1_0_dir = 0;
 	static uint8_t in1_1_dir = 0;
 	static uint8_t in1_0_esq = 0;
@@ -356,55 +361,40 @@ void Manual(void *argument)
 {
   /* USER CODE BEGIN Manual */
 	/* Infinite loop */
-	static uint8_t i;
-	static uint8_t commands[5];
-	static char comando[2];
-	static uint8_t parada;
-	static int velocidade_lida=27;
-	static uint8_t velocidade=15;
+	//uint8_t comando;
+	int veloc_buff[3];
+	/*uint8_t velocidade=15;*/
 	for (;;) {
-		osMessageQueueGet(Bluetooth_comandsHandle, &commands,
-				osPriorityRealtime, 0U);
-		if ((commands[0] == 'J')) {
-			sscanf(commands, "J%d\n", &velocidade_lida);
-		} else {
-			sscanf(commands, "%c\n%c\n", &comando[1], &comando[2]);
-			for (i = 0; i < 2; i++) {
-				switch (comando[i]) {
-				case 'S':
-					stop();
-					break;
-				case 'F':
-					frente(velocidade);
-					break;
-				case 'L':
-					rot_esq(velocidade);
-					break;
-				case 'R':
-					rot_dir(velocidade);
-					break;
-				case 'G':
-					re(velocidade);
-					break;
-				case 'E':
-					direita();
-					break;
-				case 'Q':
-					esquerda();
-					break;
-				default:
-					/*stop();*/
-					break;
-				}
-			}
-		}
-		if (velocidade_lida >= 100) {
-			velocidade = 100;
-		} else {
-			velocidade = (uint8_t) velocidade_lida;
-		}
+		osMessageQueueGet(Bluetooth_comandsHandle, &comando, osPriorityRealtime,
+				0U);
+		switch (comando[0]) {
+		case 'S':
+			stop();
+			break;
+		case 'F':
+			frente(velocidade);
+			break;
+		case 'L':
+			rot_esq(velocidade);
+			break;
+		case 'R':
+			rot_dir(velocidade);
+			break;
+		case 'G':
+			re(velocidade);
+			break;
+		case 'E':
+			direita();
+			break;
+		case 'Q':
+			esquerda();
+			break;
+		default:
 
-		memset(commands, 0x0, sizeof(commands));
+			/*stop();*/
+			break;
+		}
+		memset(comando, 0x0, sizeof(comando));
 		osDelay(2);
 	}
   /* USER CODE END Manual */
@@ -421,13 +411,11 @@ void Sensors(void *argument)
 {
   /* USER CODE BEGIN Sensors */
 	/* Infinite loop */
-
 	for (;;) {
 		/*Lendo o Estado de sensores infravermelho*/
 		pin_re = HAL_GPIO_ReadPin(INF_RE_GPIO_Port, INF_RE_Pin);
 		pin_esq = HAL_GPIO_ReadPin(INF_ESQ_GPIO_Port, INF_ESQ_Pin);
 		pin_dir = HAL_GPIO_ReadPin(INF_DIR_GPIO_Port, INF_DIR_Pin);
-
 		osDelay(2);
 	}
   /* USER CODE END Sensors */
@@ -443,9 +431,8 @@ void Sensors(void *argument)
 void Ultrasonic(void *argument)
 {
   /* USER CODE BEGIN Ultrasonic */
-	HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
-
 	/* Infinite loop */
+	HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
 	for (;;) {
 		HCSR04_Read();
 		osDelay(100);
@@ -471,11 +458,16 @@ void IDLE(void *argument)
 		if(flagsX&TURN_ON_AUTONOMUS){
 			osDelay(2000);
 			osThreadResume(Autonomus_ModeHandle);
+			osThreadResume(SensorsReadingHandle);
+			osThreadResume(Ultrasonic_ReadHandle);
 			osThreadSuspend(Manual_ModeHandle);
+
 		}else if(flagsX &TURN_ON_MANUAL){
 			stop();
 			osThreadResume(Manual_ModeHandle);
 			osThreadSuspend(Autonomus_ModeHandle);
+			osThreadSuspend(SensorsReadingHandle);
+			osThreadSuspend(Ultrasonic_ReadHandle);
 		}
 		osDelay(1);
 	}
@@ -545,13 +537,31 @@ void HCSR04_Read(void) {
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	static uint8_t i;
+	static uint8_t j;
 	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 5);
-	if(UART1_rxBuffer[0]=='X'){
+
+	switch(UART1_rxBuffer[0]){
+	case 'X':
 		osEventFlagsSet(Operation_ModesHandle, TURN_ON_MANUAL);
-	}else if(UART1_rxBuffer[0]=='Y'){
+		break;
+	case 'Y':
 		osEventFlagsSet(Operation_ModesHandle, TURN_ON_AUTONOMUS);
+		break;
+	case 'J':
+		velocidade = (UART1_rxBuffer[1]-48)*10 + (UART1_rxBuffer[2]-48);
+		break;
 	}
-	osMessageQueuePut(Bluetooth_comandsHandle, &UART1_rxBuffer, osPriorityRealtime, 0U);
+	j=0;
+	for(i=0;i<5;i++){
+		if(UART1_rxBuffer[i] != 10){
+			to_send[j] = UART1_rxBuffer[i];
+			j++;
+		}
+	}
+	osMessageQueuePut(Bluetooth_comandsHandle, &to_send, osPriorityRealtime, 0U);
+	memset(UART1_rxBuffer, 0x0, 5);
+	memset(to_send, 0x0, 5);
 }
 
 /* USER CODE END Application */
