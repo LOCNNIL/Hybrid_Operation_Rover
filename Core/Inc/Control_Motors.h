@@ -25,20 +25,20 @@
 #define MOTOR_DIR	TIM_CHANNEL_1
 
 typedef struct{
-	uint8_t VEL_ESQ;
-	uint8_t VEL_DIR;
+	double ESQ;
+	double DIR;
 }Velocidades;
 
+void set_speed(double DC, uint8_t motor);
 uint32_t time_wait_ms(void);
-void init_motors(float percentage);
+void init_motors(double percentage);
 void stop(void);
-void re(uint8_t percentage);
-void frente(uint8_t percentage);
-void direita(void);
-void esquerda(void);
-void rot_dir(uint8_t percentage);
-void rot_esq(uint8_t percentage);
-
-float get_speed(uint8_t motor);
+void re(double percentage);
+void frente(double percentage);
+void direita(double percentage);
+void esquerda(double percentage);
+void rot_dir(double percentage);
+void rot_esq(double percentage);
+double get_speed(uint8_t motor);
 
 #endif /* INC_CONTROL_MOTORS_H_ */
