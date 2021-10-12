@@ -4,7 +4,6 @@
  *  Created on: 30 de set de 2021
  *      Author: linco
  */
-
 #ifndef INC_CONTROL_MOTORS_H_
 #define INC_CONTROL_MOTORS_H_
 
@@ -29,16 +28,20 @@ typedef struct{
 	double DIR;
 }Velocidades;
 
-void set_speed(double DC, uint8_t motor);
-uint32_t time_wait_ms(void);
+void adjust_PWM(double DC, uint8_t motor);
+uint32_t time_wait_ms(uint8_t distancia, double vel);
 void init_motors(double percentage);
 void stop(void);
 void re(double percentage);
 void frente(double percentage);
 void direita(double percentage);
 void esquerda(double percentage);
-void rot_dir(double percentage);
-void rot_esq(double percentage);
+void rot_dir(double percentage, uint8_t angle);
+void rot_esq(double percentage, uint8_t angle);
 double get_speed(uint8_t motor);
+
+void rotacao_D(void);
+void rotacao_E(void);
+
 
 #endif /* INC_CONTROL_MOTORS_H_ */
