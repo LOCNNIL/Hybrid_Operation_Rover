@@ -32,6 +32,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stm32f401xc.h"
 #include "stdint.h"
 #include "stdio.h"
 /* USER CODE END Includes */
@@ -61,6 +62,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define LED_BLUE_Pin GPIO_PIN_13
 #define LED_BLUE_GPIO_Port GPIOC
+#define TESTE_Pin GPIO_PIN_0
+#define TESTE_GPIO_Port GPIOH
 #define BUT_Pin GPIO_PIN_0
 #define BUT_GPIO_Port GPIOA
 #define BUT_EXTI_IRQn EXTI0_IRQn
@@ -76,14 +79,20 @@ void Error_Handler(void);
 #define MOT_DIR_GPIO_Port GPIOA
 #define MOT_ESQ_Pin GPIO_PIN_9
 #define MOT_ESQ_GPIO_Port GPIOA
+#define INF_RE_Pin GPIO_PIN_10
+#define INF_RE_GPIO_Port GPIOA
+#define VEL_ESQ_Pin GPIO_PIN_11
+#define VEL_ESQ_GPIO_Port GPIOA
+#define VEL_ESQ_EXTI_IRQn EXTI15_10_IRQn
+#define VEL_DIR_Pin GPIO_PIN_12
+#define VEL_DIR_GPIO_Port GPIOA
+#define VEL_DIR_EXTI_IRQn EXTI15_10_IRQn
 #define ECHO_Pin GPIO_PIN_15
 #define ECHO_GPIO_Port GPIOA
 #define TRIG_Pin GPIO_PIN_3
 #define TRIG_GPIO_Port GPIOB
 #define INF_ESQ_Pin GPIO_PIN_4
 #define INF_ESQ_GPIO_Port GPIOB
-#define INF_RE_Pin GPIO_PIN_5
-#define INF_RE_GPIO_Port GPIOB
 #define BLE_TX_Pin GPIO_PIN_6
 #define BLE_TX_GPIO_Port GPIOB
 #define BLE_RX_Pin GPIO_PIN_7
@@ -91,7 +100,7 @@ void Error_Handler(void);
 #define INF_DIR_Pin GPIO_PIN_8
 #define INF_DIR_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
-
+/*#define ARM_MATH_CM4*/
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
