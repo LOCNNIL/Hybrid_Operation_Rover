@@ -73,10 +73,14 @@ typedef struct{
 #define TURN_ON_MANUAL 		(1<<2)	// 0b00000000000000000000000000000100	#04
 #define TURN_OFF_MANUAL		(1<<3)	// 0b00000000000000000000000000001000	#08
 
-/* Choose PID parameters */
-#define PID_PARAM_KP	0.1			/* Proporcional */
-#define PID_PARAM_KI	10			/* Integral */
-#define PID_PARAM_KD	1			/* Derivative */
+/* Choose of PID parameters for DIR motor */
+#define PID_DIR_KP	1.98			/* Proporcional */
+#define PID_DIR_KI	0.005			/* Integral */
+#define PID_DIR_KD	0.005			/* Derivative */
+/* Choose of PID parameters for ESQ motor */
+#define PID_ESQ_KP	2.01			/* Proporcional */
+#define PID_ESQ_KI	0.006			/* Integral */
+#define PID_ESQ_KD	0.007			/* Derivative */
 #define FS				10			/*Sampling Frequency*/
 #define TIMEHOLD		100		/*Sampling Period in ms*/
 #define true			1
@@ -587,9 +591,9 @@ void PID_M_DIR(void *argument) {
 	static const uint32_t timehold = TIMEHOLD;
 	/*PID instances*/
 	/*Motor Dir*/
-	DIR.PID.Kp = 2; /* Proporcional */
-	DIR.PID.Ki = 0.005; /* Integral */
-	DIR.PID.Kd = 0.004; /* Derivative */
+	DIR.PID.Kp = PID_DIR_KP; /* Proporcional */
+	DIR.PID.Ki = PID_DIR_KI; /* Integral */
+	DIR.PID.Kd = PID_DIR_KD; /* Derivative */
 	DIR.Kp_old = DIR.PID.Kp;
 	DIR.Ki_old = DIR.PID.Ki;
 	DIR.Kd_old = DIR.PID.Kd;
@@ -675,9 +679,9 @@ void PID_M_ESQ(void *argument) {
 
 	/*PID instances*/
 	/*Motor Esq*/
-	ESQ.PID.Kp = 2; /* Proporcional */
-	ESQ.PID.Ki = 0.005; /* Integral */
-	ESQ.PID.Kd = 0.006; /* Derivative */
+	ESQ.PID.Kp = PID_ESQ_KP;		/* Proporcional */
+	ESQ.PID.Ki = PID_ESQ_KI;		/* Integral */
+	ESQ.PID.Kd = PID_ESQ_KD;		/* Derivative */
 	ESQ.Kp_old = ESQ.PID.Kp;
 	ESQ.Ki_old = ESQ.PID.Ki;
 	ESQ.Kd_old = ESQ.PID.Kd;
