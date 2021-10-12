@@ -64,6 +64,11 @@ typedef struct{
 	float32_t Kp_old;
 }params_PID;
 
+typedef struct{
+	double AUTO;
+	double MANU;
+}velocidades;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -73,15 +78,19 @@ typedef struct{
 #define TURN_ON_MANUAL 		(1<<2)	// 0b00000000000000000000000000000100	#04
 #define TURN_OFF_MANUAL		(1<<3)	// 0b00000000000000000000000000001000	#08
 
-/* Choose PID parameters */
-#define PID_PARAM_KP	0.1			/* Proporcional */
-#define PID_PARAM_KI	10			/* Integral */
-#define PID_PARAM_KD	1			/* Derivative */
+/* Choose of PID parameters for DIR motor */
+#define PID_DIR_KP	1.98			/* Proporcional */
+#define PID_DIR_KI	0.005			/* Integral */
+#define PID_DIR_KD	0.005			/* Derivative */
+/* Choose of PID parameters for ESQ motor */
+#define PID_ESQ_KP	2.01				/* Proporcional */
+#define PID_ESQ_KI	0.006			/* Integral */
+#define PID_ESQ_KD	0.007			/* Derivative */
 #define FS				10			/*Sampling Frequency*/
-#define TIMEHOLD		100		/*Sampling Period in ms*/
+#define TIMEHOLD		100			/*Sampling Period in ms*/
+
 #define true			1
 #define false			0
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -110,10 +119,12 @@ uint32_t BUT_COUNT = 0;
 uint32_t ERROR_COUNT = 0;
 
 /*Motor Velocity Variables*/
-pulsos count_pulsos;
+velocidades VEL = {
+	.AUTO = 15, /*[%]*/
+	.MANU = 20, /*[%]*/
+};
 static double veloc = 15;
 RPM_mensures_t RPM;
-RPM_mensures_t RPM_filtered;
 
 /*Infrared Sensor Variables*/
 static uint32_t count_re = 0;
@@ -125,7 +136,6 @@ static GPIO_PinState pin_esq = GPIO_PIN_SET;
 static GPIO_PinState pin_re = GPIO_PIN_SET;
 
 /*PID instancies*/
-static uint8_t reload_PID=0;
 params_PID DIR;
 params_PID ESQ;
 uint8_t ESQ_TEST;
@@ -317,7 +327,7 @@ void Autonomus(void *argument)
 	static uint8_t min_dist = 10;
 	static uint32_t decisao;
 
-	const uint8_t REFdebounce = 5;
+	const uint8_t REFdebounce = 3;
 	static uint8_t in1_0_dir = 0;
 	static uint8_t in1_1_dir = 0;
 	static uint8_t in1_0_esq = 0;
@@ -325,6 +335,9 @@ void Autonomus(void *argument)
 	static uint8_t in1_0_re = 0;
 	static uint8_t in1_1_re = 0;
 
+	static const uint8_t distancia = 10;
+	static const uint8_t angulo_90 = 45;
+	static const uint8_t angulo_60 = 30;
 	HAL_TIM_PWM_Start(&htim1, MOTOR_ESQ);
 	osDelay(10);
 	HAL_TIM_PWM_Start(&htim1, MOTOR_DIR);
@@ -345,18 +358,15 @@ void Autonomus(void *argument)
 			decisao = HAL_GetTick(); /*Consulta o tick atual: "Olha a hora"*/
 			if ((decisao % 2) == 0) {
 				re(veloc);
-				osDelay(time_wait_ms() + 100);
-				rot_esq(veloc);
-				osDelay(time_wait_ms());
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				rot_esq(veloc, angulo_90);
 				frente(veloc);
 			} else {
 				re(veloc);
-				osDelay(time_wait_ms() + 100);
-				rot_dir(veloc);
-				osDelay(time_wait_ms());
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				rot_dir(veloc, angulo_90);
 				frente(veloc);
 			}
-
 		}
 		if (pin_re == GPIO_PIN_RESET) {
 
@@ -365,10 +375,8 @@ void Autonomus(void *argument)
 			if (in1_0_re >= REFdebounce) {
 				in1_1_re = REFdebounce + 1;
 				stop();
-				RPM.dir=0;
-				RPM.esq=0;
 				frente(veloc);
-				osDelay(time_wait_ms() + 100);
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
 				count_re++;
 			}
 
@@ -389,12 +397,9 @@ void Autonomus(void *argument)
 
 				/*Confirmado acionamento*/
 				stop();
-				RPM.dir=0;
-				RPM.esq=0;
 				re(veloc);
-				osDelay(time_wait_ms() + 100);
-				rot_esq(veloc);
-				osDelay(time_wait_ms() + 100);
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				rot_esq(veloc,angulo_60);
 				frente(veloc);
 				count_dir++;
 			}
@@ -415,9 +420,8 @@ void Autonomus(void *argument)
 				RPM.dir=0;
 				RPM.esq=0;
 				re(veloc);
-				osDelay(time_wait_ms() + 100);
-				rot_dir(veloc);
-				osDelay(time_wait_ms());
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				rot_dir(veloc,angulo_60);
 				frente(veloc);
 				count_esq++;
 			}
@@ -464,10 +468,10 @@ void Manual(void *argument)
 			frente(velocidade);
 			break;
 		case 'L':
-			rot_esq(velocidade);
+			rotacao_E();
 			break;
 		case 'R':
-			rot_dir(velocidade);
+			rotacao_D();
 			break;
 		case 'G':
 			re(velocidade);
@@ -482,6 +486,7 @@ void Manual(void *argument)
 			/*stop();*/
 			break;
 		}
+		osMessageQueueReset(Bluetooth_comandsHandle);
 		memset(comando, 0x0, sizeof(comando));
 		osDelay(2);
 	}
@@ -583,13 +588,11 @@ void PID_M_DIR(void *argument) {
 	/* USER CODE BEGIN PID_M_DIR */
 	/* Infinite loop */
 	init_pulso();
-	/*System Params*/
-	static const uint32_t timehold = TIMEHOLD;
 	/*PID instances*/
 	/*Motor Dir*/
-	DIR.PID.Kp = 2; /* Proporcional */
-	DIR.PID.Ki = 0.005; /* Integral */
-	DIR.PID.Kd = 0.004; /* Derivative */
+	DIR.PID.Kp = PID_DIR_KP; /* Proporcional */
+	DIR.PID.Ki = PID_DIR_KI; /* Integral */
+	DIR.PID.Kd = PID_DIR_KD; /* Derivative */
 	DIR.Kp_old = DIR.PID.Kp;
 	DIR.Ki_old = DIR.PID.Ki;
 	DIR.Kd_old = DIR.PID.Kd;
@@ -599,7 +602,9 @@ void PID_M_DIR(void *argument) {
 	DIR.len_mov_avr = (uint8_t) sizeof(DIR.vet_mov_avr) / sizeof(double);
 	/*Velocity Setpoint*/
 	DIR.SETPOINT = 100;
+	/*Motor definiton*/
 	DIR.MOT = M_DIR;
+	/*System Params*/
 	uint32_t iteration_time;
 	/* Initialize PID system, float32_t format */
 	arm_pid_init_f32(&DIR.PID, 1);
@@ -624,7 +629,8 @@ void PID_M_DIR(void *argument) {
 		}
 		DIR_TEST = (uint8_t)DIR.RPM;
 		/*PID error calculus*/
-		DIR.pid_error = DIR.SETPOINT - DIR.RPM;/* movingAvg_Dir(array_dir, len, RPM.dir, 0);*/
+		DIR.pid_error = DIR.SETPOINT - DIR.RPM;/*movingAvg_Dir(array_dir, len, RPM.dir, 0);*/
+		/*PID calculus*/
 		DIR.pid_out = arm_pid_f32(&DIR.PID, DIR.pid_error);
 		if (((DIR.pid_out > 0) && (DIR.pid_error>0))
 				|| ((DIR.pid_out<0) && (DIR.pid_error <0 ))) {
@@ -647,13 +653,13 @@ void PID_M_DIR(void *argument) {
 		} else {
 			DIR.saturation = 0;
 		}
-		set_speed(DIR.duty, DIR.MOT);
 		if (DIR.saturation && DIR.sign) {
 			DIR.PID.Ki = 0;
 			DIR.reload = true;
 		} else {
 			DIR.PID.Ki = DIR.Ki_old;
 		}
+		adjust_PWM(DIR.duty, DIR.MOT);
 		osDelay(1);
 	}
 	/* USER CODE END PID_M_DIR */
@@ -670,33 +676,26 @@ void PID_M_ESQ(void *argument) {
 	/* USER CODE BEGIN PID_M_ESQ */
 	/* Infinite loop */
 	init_pulso();
-	/*System Params*/
-	static const uint32_t timehold = TIMEHOLD;
-
 	/*PID instances*/
 	/*Motor Esq*/
-	ESQ.PID.Kp = 2; /* Proporcional */
-	ESQ.PID.Ki = 0.005; /* Integral */
-	ESQ.PID.Kd = 0.006; /* Derivative */
+	ESQ.PID.Kp = PID_ESQ_KP;			/* Proporcional */
+	ESQ.PID.Ki = PID_ESQ_KI;		/* Integral */
+	ESQ.PID.Kd = PID_ESQ_KD;		/* Derivative */
 	ESQ.Kp_old = ESQ.PID.Kp;
 	ESQ.Ki_old = ESQ.PID.Ki;
 	ESQ.Kd_old = ESQ.PID.Kd;
 	/* PID error */
 	ESQ.pid_error = 0;
-
 	/*BUffer Len to mov. avrg*/
 	ESQ.len_mov_avr = (uint8_t) sizeof(ESQ.vet_mov_avr) / sizeof(double);
-
 	/*Velocity Setpoint*/
 	ESQ.SETPOINT = 100;
-
+	/*Motor definiton*/
 	ESQ.MOT = M_ESQ;
-
+	/*System Params*/
 	uint32_t iteration_time;
-
 	/* Initialize PID system, float32_t format */
 	arm_pid_init_f32(&ESQ.PID, 1);
-
 	for (;;) {
 		if (ESQ.reload == true) {
 			arm_pid_init_f32(&ESQ.PID, 0);
@@ -718,8 +717,8 @@ void PID_M_ESQ(void *argument) {
 		}
 
 		/*PID error calculus*/
-		ESQ_TEST = (uint8_t)ESQ.RPM;
 		ESQ.pid_error = ESQ.SETPOINT - ESQ.RPM;/* movingAvg_Dir(array_dir, len, RPM.dir, 0);*/
+		/*PID calculus*/
 		ESQ.pid_out = arm_pid_f32(&ESQ.PID, ESQ.pid_error);
 		if (((ESQ.pid_out > 0) && (ESQ.pid_error>0))
 				|| ((ESQ.pid_out<0) && (ESQ.pid_error <0 ))) {
@@ -742,13 +741,13 @@ void PID_M_ESQ(void *argument) {
 		} else {
 			ESQ.saturation = 0;
 		}
-		set_speed(ESQ.duty, ESQ.MOT);
 		if (ESQ.saturation && ESQ.sign) {
 			ESQ.PID.Ki = 0;
 			ESQ.reload = true;
 		} else {
 			ESQ.PID.Ki = ESQ.Ki_old;
 		}
+		adjust_PWM(ESQ.duty, ESQ.MOT);
 		osDelay(1);
 	}
 	/* USER CODE END PID_M_ESQ */
@@ -845,55 +844,55 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		velocidade = (UART1_rxBuffer[1]-48)*10 + (UART1_rxBuffer[2]-48);
 		break;
 	case 'P':
-		DIR.PID.Kp++; /*= PID_esq.Kp + 0.1;*/       /* Proporcional */
+/*		DIR.PID.Kp = DIR.PID.Kp + 0.001;        Proporcional
 		DIR.Kp_old = DIR.PID.Kp;
-		DIR.reload = true;
-		ESQ.PID.Kp++; /*= PID_dir.Kp + 0.1;*/
+		DIR.reload = true;*/
+		ESQ.PID.Kp = ESQ.PID.Kp + 0.001;
 		ESQ.Kp_old = ESQ.PID.Kp;
 		ESQ.reload = true;
 		break;
 	case 'p':
-		DIR.PID.Kp--; /*= PID_esq.Kp - 0.1;  */     /* Proporcional */
+/*		DIR.PID.Kp = DIR.PID.Kp  - 0.001;      Proporcional
 		DIR.Kp_old = DIR.PID.Kp;
-		DIR.reload = true;
-		ESQ.PID.Kp--; /*= PID_dir.Kp - 0.1;*/
+		DIR.reload = true;*/
+		ESQ.PID.Kp = ESQ.PID.Kp - 0.001;
 		ESQ.Kp_old = ESQ.PID.Kp;
 		ESQ.reload = true;
 		break;
 	case 'I':
-		DIR.PID.Ki++; /* = PID_esq.Ki + 0.1;*/        /* Integral */
+/*		DIR.PID.Ki = DIR.PID.Ki + 0.001;         Integral
 		DIR.Ki_old = DIR.PID.Ki;
-		DIR.reload = true;
-		ESQ.PID.Ki++; /*= PID_dir.Ki + 0.1;*/
+		DIR.reload = true;*/
+		ESQ.PID.Ki = ESQ.PID.Ki + 0.001;
 		ESQ.Ki_old = ESQ.PID.Ki;
 		ESQ.reload = true;
 		break;
 	case 'i':
-		DIR.PID.Ki--; /*= PID_esq.Ki - 0.1;*/         /* Integral */
+/*		DIR.PID.Ki = DIR.PID.Ki - 0.001;          Integral
 		DIR.Ki_old = DIR.PID.Ki;
-		DIR.reload = true;
-		ESQ.PID.Ki--; /*= PID_dir.Ki - 0.1;*/
+		DIR.reload = true;*/
+		ESQ.PID.Ki = ESQ.PID.Ki - 0.001;
 		ESQ.Ki_old = ESQ.PID.Ki;
 		ESQ.reload = true;
 		break;
 	case 'D':
-		DIR.PID.Kd++; /*= PID_esq.Kd + 0.1; */        /* Derivative */
+/*		DIR.PID.Kd = DIR.PID.Kd + 0.001;         Derivative
 		DIR.Kd_old = DIR.PID.Kd;
-		DIR.reload = true;
-		ESQ.PID.Kd++; /*= PID_dir.Kd + 0.1;*/
+		DIR.reload = true;*/
+		ESQ.PID.Kd = ESQ.PID.Kd + 0.001;
 		ESQ.Kd_old = ESQ.PID.Kd;
 		ESQ.reload = true;
 		break;
 	case 'd':
-		DIR.PID.Kd--; /* = PID_esq.Kd - 0.1;*/        /* Derivative */
+/*		DIR.PID.Kd = DIR.PID.Kd - 0.001;         Derivative
 		DIR.Kd_old = DIR.PID.Kd;
-		DIR.reload = true;
-		ESQ.PID.Kd--; /*= PID_dir.Kd - 0.1;*/
+		DIR.reload = true;*/
+		ESQ.PID.Kd = ESQ.PID.Kd - 0.001;
 		ESQ.Kd_old = ESQ.PID.Kd;
 		ESQ.reload = true;
 		break;
 	}
-/*	j=0;
+	j=0;
 	for(i=0;i<5;i++){
 		if(UART1_rxBuffer[i] != 10){
 			to_send[j] = UART1_rxBuffer[i];
@@ -902,7 +901,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	}
 	osMessageQueuePut(Bluetooth_comandsHandle, &to_send, osPriorityRealtime, 0U);
 	memset(UART1_rxBuffer, 0x0, 5);
-	memset(to_send, 0x0, 5);*/
+	memset(to_send, 0x0, 5);
 }
 /* USER CODE END Application */
 
