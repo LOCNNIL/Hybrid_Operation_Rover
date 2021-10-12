@@ -58,6 +58,8 @@ Debug/*
 *cache
 *-cache.lib
 sym-lib-table
+*.launch
+*.cfg
 
 #Anotations and calculus filles
 *.xlsx
