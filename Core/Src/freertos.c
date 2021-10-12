@@ -325,6 +325,10 @@ void Autonomus(void *argument)
 	static uint8_t in1_0_re = 0;
 	static uint8_t in1_1_re = 0;
 
+	static const uint8_t distancia = 10;
+	static const uint8_t angulo_90 = 45;
+	static const uint8_t angulo_60 = 30;
+
 	HAL_TIM_PWM_Start(&htim1, MOTOR_ESQ);
 	osDelay(10);
 	HAL_TIM_PWM_Start(&htim1, MOTOR_DIR);
@@ -345,15 +349,13 @@ void Autonomus(void *argument)
 			decisao = HAL_GetTick(); /*Consulta o tick atual: "Olha a hora"*/
 			if ((decisao % 2) == 0) {
 				re(veloc);
-				osDelay(time_wait_ms() + 100);
-				rot_esq(veloc);
-				osDelay(time_wait_ms());
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				rot_esq(veloc,angulo_90);
 				frente(veloc);
 			} else {
 				re(veloc);
-				osDelay(time_wait_ms() + 100);
-				rot_dir(veloc);
-				osDelay(time_wait_ms());
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				rot_dir(veloc,angulo_90);
 				frente(veloc);
 			}
 
@@ -368,7 +370,7 @@ void Autonomus(void *argument)
 				RPM.dir=0;
 				RPM.esq=0;
 				frente(veloc);
-				osDelay(time_wait_ms() + 100);
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
 				count_re++;
 			}
 
@@ -392,9 +394,8 @@ void Autonomus(void *argument)
 				RPM.dir=0;
 				RPM.esq=0;
 				re(veloc);
-				osDelay(time_wait_ms() + 100);
-				rot_esq(veloc);
-				osDelay(time_wait_ms() + 100);
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				rot_esq(veloc,angulo_60);
 				frente(veloc);
 				count_dir++;
 			}
@@ -415,9 +416,8 @@ void Autonomus(void *argument)
 				RPM.dir=0;
 				RPM.esq=0;
 				re(veloc);
-				osDelay(time_wait_ms() + 100);
-				rot_dir(veloc);
-				osDelay(time_wait_ms());
+				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				rot_dir(veloc,angulo_60);
 				frente(veloc);
 				count_esq++;
 			}
@@ -464,10 +464,10 @@ void Manual(void *argument)
 			frente(velocidade);
 			break;
 		case 'L':
-			rot_esq(velocidade);
+			rotacao_E();
 			break;
 		case 'R':
-			rot_dir(velocidade);
+			rotacao_D();
 			break;
 		case 'G':
 			re(velocidade);
@@ -647,7 +647,7 @@ void PID_M_DIR(void *argument) {
 		} else {
 			DIR.saturation = 0;
 		}
-		set_speed(DIR.duty, DIR.MOT);
+		adjust_PWM(DIR.duty, DIR.MOT);
 		if (DIR.saturation && DIR.sign) {
 			DIR.PID.Ki = 0;
 			DIR.reload = true;
@@ -742,7 +742,7 @@ void PID_M_ESQ(void *argument) {
 		} else {
 			ESQ.saturation = 0;
 		}
-		set_speed(ESQ.duty, ESQ.MOT);
+		adjust_PWM(ESQ.duty, ESQ.MOT);
 		if (ESQ.saturation && ESQ.sign) {
 			ESQ.PID.Ki = 0;
 			ESQ.reload = true;
