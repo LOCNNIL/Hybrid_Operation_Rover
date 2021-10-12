@@ -10,8 +10,8 @@
 #include "stdint.h"
 
 typedef struct {
-	uint32_t dir;
-	uint32_t esq;
+	uint32_t ANG;
+	uint32_t VEL;
 }pulsos;
 
 double duty_2_rpm(double duty);

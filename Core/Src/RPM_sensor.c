@@ -11,7 +11,9 @@
 #include "dma.h"
 #include "tim.h"
 
-pulsos count_pulsos;
+pulsos D;
+pulsos E;
+
 
 double movingAvg_Dir(double *ptrArrNumbers, uint8_t len, double nextNum, uint8_t init){
 	static uint8_t pos=0;
@@ -60,30 +62,34 @@ double movingAvg_Esq(double *ptrArrNumbers, uint8_t len, double nextNum, uint8_t
 }
 
 void init_pulso(void){
-	count_pulsos.dir=0;
-	count_pulsos.esq=0;
+	D.ANG=0;
+	D.VEL=0;
+	E.ANG=0;
+	E.VEL=0;
 }
 void reset_pulso(uint8_t MOT){
 	if(MOT == M_ESQ){
-		count_pulsos.esq=0;
+		E.VEL=0;
 	}else{
-		count_pulsos.dir=0;
+		D.VEL=0;
 	}
 }
 
 void inc_pulso(uint8_t MOT){
 	if(MOT == M_ESQ){
-		count_pulsos.esq++;
+		E.VEL++;
+		E.ANG++;
 	}else{
-		count_pulsos.dir++;
+		D.VEL++;
+		D.ANG++;
 	}
 }
 
 uint32_t get_pulso(uint8_t MOT){
 	if(MOT == M_ESQ){
-		return count_pulsos.esq;
+		return E.VEL;
 	}else{
-		return count_pulsos.dir;
+		return D.VEL;
 	}
 }
 

@@ -78,7 +78,7 @@ typedef struct{
 #define PID_DIR_KI	0.005			/* Integral */
 #define PID_DIR_KD	0.005			/* Derivative */
 /* Choose of PID parameters for ESQ motor */
-#define PID_ESQ_KP	2.01			/* Proporcional */
+#define PID_ESQ_KP	2.1				/* Proporcional */
 #define PID_ESQ_KI	0.006			/* Integral */
 #define PID_ESQ_KD	0.007			/* Derivative */
 #define FS				10			/*Sampling Frequency*/
