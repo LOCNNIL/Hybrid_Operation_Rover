@@ -58,3 +58,7 @@ Debug/*
 *cache
 *-cache.lib
 sym-lib-table
+
+#Anotations and calculus filles
+*.xlsx
+*.jpg
