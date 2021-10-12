@@ -129,7 +129,6 @@ static GPIO_PinState pin_esq = GPIO_PIN_SET;
 static GPIO_PinState pin_re = GPIO_PIN_SET;
 
 /*PID instancies*/
-static uint8_t reload_PID=0;
 params_PID DIR;
 params_PID ESQ;
 uint8_t ESQ_TEST;
@@ -587,8 +586,6 @@ void PID_M_DIR(void *argument) {
 	/* USER CODE BEGIN PID_M_DIR */
 	/* Infinite loop */
 	init_pulso();
-	/*System Params*/
-	static const uint32_t timehold = TIMEHOLD;
 	/*PID instances*/
 	/*Motor Dir*/
 	DIR.PID.Kp = PID_DIR_KP; /* Proporcional */
@@ -604,6 +601,7 @@ void PID_M_DIR(void *argument) {
 	/*Velocity Setpoint*/
 	DIR.SETPOINT = 100;
 	DIR.MOT = M_DIR;
+	/*System Params*/
 	uint32_t iteration_time;
 	/* Initialize PID system, float32_t format */
 	arm_pid_init_f32(&DIR.PID, 1);
@@ -674,9 +672,6 @@ void PID_M_ESQ(void *argument) {
 	/* USER CODE BEGIN PID_M_ESQ */
 	/* Infinite loop */
 	init_pulso();
-	/*System Params*/
-	static const uint32_t timehold = TIMEHOLD;
-
 	/*PID instances*/
 	/*Motor Esq*/
 	ESQ.PID.Kp = PID_ESQ_KP;		/* Proporcional */
@@ -695,7 +690,7 @@ void PID_M_ESQ(void *argument) {
 	ESQ.SETPOINT = 100;
 
 	ESQ.MOT = M_ESQ;
-
+	/*System Params*/
 	uint32_t iteration_time;
 
 	/* Initialize PID system, float32_t format */
