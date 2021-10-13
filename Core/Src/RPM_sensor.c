@@ -67,12 +67,16 @@ void init_pulso(void){
 	E.ANG=0;
 	E.VEL=0;
 }
-void reset_pulso(uint8_t MOT){
+void reset_pulso_vel(uint8_t MOT){
 	if(MOT == M_ESQ){
 		E.VEL=0;
 	}else{
 		D.VEL=0;
 	}
+}
+void reset_pulso_ang(void){
+	E.ANG=0;
+	D.ANG=0;
 }
 
 void inc_pulso(uint8_t MOT){
@@ -85,7 +89,7 @@ void inc_pulso(uint8_t MOT){
 	}
 }
 
-uint32_t get_pulso(uint8_t MOT){
+uint32_t get_pulso_vel(uint8_t MOT){
 	if(MOT == M_ESQ){
 		return E.VEL;
 	}else{
@@ -93,4 +97,11 @@ uint32_t get_pulso(uint8_t MOT){
 	}
 }
 
+uint32_t get_pulso_ang(uint8_t MOT){
+	if(MOT == M_ESQ){
+		return E.ANG;
+	}else{
+		return D.ANG;
+	}
+}
 
