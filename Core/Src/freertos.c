@@ -79,7 +79,7 @@ typedef struct{
 #define PID_DIR_KD	0.005			/* Derivative */
 /* Choose of PID parameters for ESQ motor */
 #define PID_ESQ_KP	2.1				/* Proporcional */
-#define PID_ESQ_KI	0.006			/* Integral */
+#define PID_ESQ_KI	0.004			/* Integral */
 #define PID_ESQ_KD	0.007			/* Derivative */
 #define FS				10			/*Sampling Frequency*/
 #define TIMEHOLD		100		/*Sampling Period in ms*/
@@ -115,9 +115,8 @@ uint32_t ERROR_COUNT = 0;
 
 /*Motor Velocity Variables*/
 pulsos count_pulsos;
-static double veloc = 15;
+static double veloc = 90; /*[RPM]*/
 RPM_mensures_t RPM;
-RPM_mensures_t RPM_filtered;
 
 /*Infrared Sensor Variables*/
 static uint32_t count_re = 0;
@@ -129,10 +128,15 @@ static GPIO_PinState pin_esq = GPIO_PIN_SET;
 static GPIO_PinState pin_re = GPIO_PIN_SET;
 
 /*PID instancies*/
-params_PID DIR;
-params_PID ESQ;
-uint8_t ESQ_TEST;
-uint8_t DIR_TEST;
+params_PID DIR = {
+		/*Velocity Setpoint*/
+		.SETPOINT = 100,
+};
+
+params_PID ESQ = {
+		.SETPOINT = 100,
+};
+
 
 uint8_t velocidade=15;
 uint8_t comando[5];
@@ -347,17 +351,15 @@ void Autonomus(void *argument)
 				(uint32_t)0U);
 		if (Distancia <= min_dist) {
 			stop();
-			RPM.dir=0;
-			RPM.esq=0;
 			decisao = HAL_GetTick(); /*Consulta o tick atual: "Olha a hora"*/
 			if ((decisao % 2) == 0) {
 				re(veloc);
-				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				osDelay(time_wait_ms(distancia, veloc));
 				rot_esq(veloc,angulo_90);
 				frente(veloc);
 			} else {
 				re(veloc);
-				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				osDelay(time_wait_ms(distancia, veloc));
 				rot_dir(veloc,angulo_90);
 				frente(veloc);
 			}
@@ -370,10 +372,8 @@ void Autonomus(void *argument)
 			if (in1_0_re >= REFdebounce) {
 				in1_1_re = REFdebounce + 1;
 				stop();
-				RPM.dir=0;
-				RPM.esq=0;
 				frente(veloc);
-				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				osDelay(time_wait_ms(distancia, veloc));
 				count_re++;
 			}
 
@@ -394,10 +394,8 @@ void Autonomus(void *argument)
 
 				/*Confirmado acionamento*/
 				stop();
-				RPM.dir=0;
-				RPM.esq=0;
 				re(veloc);
-				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				osDelay(time_wait_ms(distancia, veloc));
 				rot_esq(veloc,angulo_60);
 				frente(veloc);
 				count_dir++;
@@ -416,10 +414,8 @@ void Autonomus(void *argument)
 			if (in1_0_esq >= REFdebounce) {
 				in1_1_esq = REFdebounce + 1;
 				stop();
-				RPM.dir=0;
-				RPM.esq=0;
 				re(veloc);
-				osDelay(time_wait_ms(distancia, duty_2_rpm(veloc)));
+				osDelay(time_wait_ms(distancia, veloc));
 				rot_dir(veloc,angulo_60);
 				frente(veloc);
 				count_esq++;
@@ -460,8 +456,6 @@ void Manual(void *argument)
 		switch (comando[0]) {
 		case 'S':
 			stop();
-			RPM.dir=0;
-			RPM.esq=0;
 			break;
 		case 'F':
 			frente(velocidade);
@@ -598,8 +592,8 @@ void PID_M_DIR(void *argument) {
 	DIR.pid_error = 0;
 	/*BUffer Len to mov. avrg*/
 	DIR.len_mov_avr = (uint8_t) sizeof(DIR.vet_mov_avr) / sizeof(double);
-	/*Velocity Setpoint*/
-	DIR.SETPOINT = 100;
+	/*Velocity Setpoint
+	DIR.SETPOINT = 100;*/
 	DIR.MOT = M_DIR;
 	/*System Params*/
 	uint32_t iteration_time;
@@ -618,13 +612,12 @@ void PID_M_DIR(void *argument) {
 			/*getting setpoint value for motor dir*/
 			__disable_irq();
 			/*RPM calculus*/
-			DIR.RPM = get_pulso(DIR.MOT) * 3000
+			DIR.RPM = get_pulso_vel(DIR.MOT) * 3000
 					/ (HAL_GetTick() - DIR.old_time);
 			DIR.old_time = HAL_GetTick();
-			reset_pulso(DIR.MOT);
+			reset_pulso_vel(DIR.MOT);
 			__enable_irq();
 		}
-		DIR_TEST = (uint8_t)DIR.RPM;
 		/*PID error calculus*/
 		DIR.pid_error = DIR.SETPOINT - DIR.RPM;/* movingAvg_Dir(array_dir, len, RPM.dir, 0);*/
 		DIR.pid_out = arm_pid_f32(&DIR.PID, DIR.pid_error);
@@ -635,10 +628,7 @@ void PID_M_DIR(void *argument) {
 			DIR.sign = 0;
 		}
 		DIR.duty = rpm_2_duty(DIR.pid_out);
-		/*		pid_curr_error_D = SET_POINT.DIR - movingAvg_Dir(array_dir, len, RPM.dir, 0);
-		 integration_sum_D += (pid_curr_error_D * iteration_time);
-		 duty_dir = PID_dir.Kp * pid_curr_error_D + PID_dir.Ki * integration_sum_D + PID_dir.Kd * 1000 * (pid_curr_error_D - pid_error_dir)/iteration_time;
-		 pid_error_dir = pid_curr_error_D;*/
+
 		/*Anti Wind-up implementation for motor dir*/
 		if (DIR.duty > 100.0) {
 			DIR.duty = 99.7;
@@ -686,9 +676,6 @@ void PID_M_ESQ(void *argument) {
 	/*BUffer Len to mov. avrg*/
 	ESQ.len_mov_avr = (uint8_t) sizeof(ESQ.vet_mov_avr) / sizeof(double);
 
-	/*Velocity Setpoint*/
-	ESQ.SETPOINT = 100;
-
 	ESQ.MOT = M_ESQ;
 	/*System Params*/
 	uint32_t iteration_time;
@@ -709,15 +696,13 @@ void PID_M_ESQ(void *argument) {
 			/*getting setpoint value for motor esq*/
 			__disable_irq();
 			/*RPM calculus*/
-			ESQ.RPM = get_pulso(ESQ.MOT) * 3000
+			ESQ.RPM = get_pulso_vel(ESQ.MOT) * 3000
 					/ (HAL_GetTick() - ESQ.old_time);
 			ESQ.old_time = HAL_GetTick();
-			reset_pulso(ESQ.MOT);
+			reset_pulso_vel(ESQ.MOT);
 			__enable_irq();
 		}
-
 		/*PID error calculus*/
-		ESQ_TEST = (uint8_t)ESQ.RPM;
 		ESQ.pid_error = ESQ.SETPOINT - ESQ.RPM;/* movingAvg_Dir(array_dir, len, RPM.dir, 0);*/
 		ESQ.pid_out = arm_pid_f32(&ESQ.PID, ESQ.pid_error);
 		if (((ESQ.pid_out > 0) && (ESQ.pid_error>0))
@@ -727,10 +712,7 @@ void PID_M_ESQ(void *argument) {
 			ESQ.sign = 0;
 		}
 		ESQ.duty = rpm_2_duty(ESQ.pid_out);
-		/*		pid_curr_error_D = SET_POINT.DIR - movingAvg_Dir(array_dir, len, RPM.dir, 0);
-		 integration_sum_D += (pid_curr_error_D * iteration_time);
-		 duty_dir = PID_dir.Kp * pid_curr_error_D + PID_dir.Ki * integration_sum_D + PID_dir.Kd * 1000 * (pid_curr_error_D - pid_error_dir)/iteration_time;
-		 pid_error_dir = pid_curr_error_D;*/
+
 		/*Anti Wind-up implementation for motor dir*/
 		if (ESQ.duty > 100.0) {
 			ESQ.duty = 99.7;
