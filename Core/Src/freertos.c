@@ -74,15 +74,18 @@ typedef struct{
 #define TURN_OFF_MANUAL		(1<<3)	// 0b00000000000000000000000000001000	#08
 
 /* Choose of PID parameters for DIR motor */
-#define PID_DIR_KP	1.98			/* Proporcional */
+#define PID_DIR_KP	2				/* Proporcional */
 #define PID_DIR_KI	0.005			/* Integral */
 #define PID_DIR_KD	0.005			/* Derivative */
 /* Choose of PID parameters for ESQ motor */
-#define PID_ESQ_KP	2.1				/* Proporcional */
-#define PID_ESQ_KI	0.004			/* Integral */
-#define PID_ESQ_KD	0.007			/* Derivative */
+#define PID_ESQ_KP	2				/* Proporcional */
+#define PID_ESQ_KI	0.005			/* Integral */
+#define PID_ESQ_KD	0.005			/* Derivative */
+/*#define PID_ESQ_KP	2.1				 Proporcional
+#define PID_ESQ_KI	0.004			 Integral
+#define PID_ESQ_KD	0.009			 Derivative */
 #define FS				10			/*Sampling Frequency*/
-#define TIMEHOLD		100		/*Sampling Period in ms*/
+#define TIMEHOLD		500		/*Sampling Period in ms*/
 #define true			1
 #define false			0
 
@@ -115,7 +118,7 @@ uint32_t ERROR_COUNT = 0;
 
 /*Motor Velocity Variables*/
 pulsos count_pulsos;
-static double veloc = 90; /*[RPM]*/
+static double veloc = 80; /*[RPM]*/
 RPM_mensures_t RPM;
 
 /*Infrared Sensor Variables*/
@@ -130,11 +133,11 @@ static GPIO_PinState pin_re = GPIO_PIN_SET;
 /*PID instancies*/
 params_PID DIR = {
 		/*Velocity Setpoint*/
-		.SETPOINT = 100,
+		.SETPOINT = 80,
 };
 
 params_PID ESQ = {
-		.SETPOINT = 100,
+		.SETPOINT = 80,
 };
 
 
@@ -447,40 +450,53 @@ void Manual(void *argument)
 {
   /* USER CODE BEGIN Manual */
 	/* Infinite loop */
-	//uint8_t comando;
-	int veloc_buff[3];
+	uint8_t i=0;
+	uint8_t buff[5];
+	HAL_StatusTypeDef feedback;
 	/*uint8_t velocidade=15;*/
 	for (;;) {
-		osMessageQueueGet(Bluetooth_comandsHandle, &comando, osPriorityRealtime,
-				0U);
-		switch (comando[0]) {
-		case 'S':
-			stop();
-			break;
-		case 'F':
-			frente(velocidade);
-			break;
-		case 'L':
-			rotacao_E();
-			break;
-		case 'R':
-			rotacao_D();
-			break;
-		case 'G':
-			re(velocidade);
-			break;
-		case 'E':
-			direita(velocidade);
-			break;
-		case 'Q':
-			esquerda(velocidade);
-			break;
-		default:
-			/*stop();*/
-			break;
+		osMessageQueueGet(Bluetooth_comandsHandle, &buff, osPriorityRealtime,
+				10U);
+		/*		__disable_irq();
+		 memcpy(buff, to_send, sizeof(buff));
+		 memset(to_send, 0x0, sizeof(buff));
+		 __enable_irq();*/
+
+		i = 0;
+		while ((i < 5) && (buff[i] != 0x0)) {
+			if (buff[i] != 10) {
+				switch (buff[i]) {
+				case 'S':
+					stop();
+					break;
+				case 'F':
+					frente(veloc);
+					break;
+				case 'L':
+					rotacao_E();
+					break;
+				case 'R':
+					rotacao_D();
+					break;
+				case 'G':
+					re(veloc);
+					break;
+				case 'E':
+					direita(veloc);
+					break;
+				case 'Q':
+					esquerda(veloc);
+					break;
+				default:
+					stop();
+					break;
+				}
+			}
+			i++;
+			buff[i] = 0x0;
 		}
-		memset(comando, 0x0, sizeof(comando));
-		osDelay(2);
+		osMessageQueueReset(Bluetooth_comandsHandle);
+		osDelay(1);
 	}
   /* USER CODE END Manual */
 }
@@ -555,8 +571,6 @@ void IDLE(void *argument)
 			osThreadSuspend(SensorsReadingHandle);
 			osThreadSuspend(Ultrasonic_ReadHandle);
 			osThreadResume(Manual_ModeHandle);
-			osThreadResume(PID_DIR_TaskHandle);
-			osThreadResume(PID_ESQ_TaskHandle);
 		}else if(flagsX &TURN_OFF_MANUAL){
 			osThreadSuspend(Autonomus_ModeHandle);
 			osThreadSuspend(SensorsReadingHandle);
@@ -600,6 +614,7 @@ void PID_M_DIR(void *argument) {
 	/* Initialize PID system, float32_t format */
 	arm_pid_init_f32(&DIR.PID, 1);
 	for (;;) {
+		DIR.SETPOINT = get_speed(DIR.MOT);
 		if (DIR.reload == true) {
 			arm_pid_init_f32(&DIR.PID, 0);
 			DIR.Kp_old = DIR.PID.Kp;
@@ -684,6 +699,7 @@ void PID_M_ESQ(void *argument) {
 	arm_pid_init_f32(&ESQ.PID, 1);
 
 	for (;;) {
+		ESQ.SETPOINT = get_speed(ESQ.MOT);
 		if (ESQ.reload == true) {
 			arm_pid_init_f32(&ESQ.PID, 0);
 			ESQ.Kp_old = ESQ.PID.Kp;
@@ -744,7 +760,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		stop();
 		BUT_COUNT++;
 		LED_OFF;
-		veloc = veloc+1;
+		veloc = veloc+5;
 		osEventFlagsSet(Operation_ModesHandle, TURN_ON_AUTONOMUS);
 		break;
 
@@ -760,6 +776,76 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		ERROR_COUNT++;
 		break;
 	}
+}
+
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	static uint8_t i;
+	static uint8_t j;
+	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 5);
+
+	switch(UART1_rxBuffer[0]){
+	case 'X':
+		osEventFlagsSet(Operation_ModesHandle, TURN_ON_MANUAL);
+		break;
+	case 'Y':
+		osEventFlagsSet(Operation_ModesHandle, TURN_ON_AUTONOMUS);
+		break;
+	case 'J':
+		sscanf(UART1_rxBuffer,"J%d", &veloc);
+		break;
+/*	case 'P':
+		DIR.PID.Kp++; = PID_esq.Kp + 0.1;        Proporcional
+		DIR.Kp_old = DIR.PID.Kp;
+		DIR.reload = true;
+		ESQ.PID.Kp++; = PID_dir.Kp + 0.1;
+		ESQ.Kp_old = ESQ.PID.Kp;
+		ESQ.reload = true;
+		break;
+	case 'p':
+		DIR.PID.Kp--; = PID_esq.Kp - 0.1;        Proporcional
+		DIR.Kp_old = DIR.PID.Kp;
+		DIR.reload = true;
+		ESQ.PID.Kp--; = PID_dir.Kp - 0.1;
+		ESQ.Kp_old = ESQ.PID.Kp;
+		ESQ.reload = true;
+		break;
+	case 'I':
+		DIR.PID.Ki++;  = PID_esq.Ki + 0.1;         Integral
+		DIR.Ki_old = DIR.PID.Ki;
+		DIR.reload = true;
+		ESQ.PID.Ki++; = PID_dir.Ki + 0.1;
+		ESQ.Ki_old = ESQ.PID.Ki;
+		ESQ.reload = true;
+		break;
+	case 'i':
+		DIR.PID.Ki--; = PID_esq.Ki - 0.1;          Integral
+		DIR.Ki_old = DIR.PID.Ki;
+		DIR.reload = true;
+		ESQ.PID.Ki--; = PID_dir.Ki - 0.1;
+		ESQ.Ki_old = ESQ.PID.Ki;
+		ESQ.reload = true;
+		break;
+	case 'D':
+		DIR.PID.Kd++; = PID_esq.Kd + 0.1;          Derivative
+		DIR.Kd_old = DIR.PID.Kd;
+		DIR.reload = true;
+		ESQ.PID.Kd++; = PID_dir.Kd + 0.1;
+		ESQ.Kd_old = ESQ.PID.Kd;
+		ESQ.reload = true;
+		break;
+	case 'd':
+		DIR.PID.Kd--;  = PID_esq.Kd - 0.1;         Derivative
+		DIR.Kd_old = DIR.PID.Kd;
+		DIR.reload = true;
+		ESQ.PID.Kd--; = PID_dir.Kd - 0.1;
+		ESQ.Kd_old = ESQ.PID.Kd;
+		ESQ.reload = true;
+		break;*/
+	default:
+		break;
+	}
+	osMessageQueuePut(Bluetooth_comandsHandle, &UART1_rxBuffer, osPriorityRealtime, 2U);
 }
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
@@ -810,81 +896,6 @@ void HCSR04_Read(void) {
 	__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC1);
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	static uint8_t i;
-	static uint8_t j;
-	HAL_UART_Receive_IT(&huart1, UART1_rxBuffer, 3);
-
-	switch(UART1_rxBuffer[0]){
-	case 'X':
-		osEventFlagsSet(Operation_ModesHandle, TURN_ON_MANUAL);
-		break;
-	case 'Y':
-		osEventFlagsSet(Operation_ModesHandle, TURN_ON_AUTONOMUS);
-		break;
-	case 'J':
-		velocidade = (UART1_rxBuffer[1]-48)*10 + (UART1_rxBuffer[2]-48);
-		break;
-	case 'P':
-		DIR.PID.Kp++; /*= PID_esq.Kp + 0.1;*/       /* Proporcional */
-		DIR.Kp_old = DIR.PID.Kp;
-		DIR.reload = true;
-		ESQ.PID.Kp++; /*= PID_dir.Kp + 0.1;*/
-		ESQ.Kp_old = ESQ.PID.Kp;
-		ESQ.reload = true;
-		break;
-	case 'p':
-		DIR.PID.Kp--; /*= PID_esq.Kp - 0.1;  */     /* Proporcional */
-		DIR.Kp_old = DIR.PID.Kp;
-		DIR.reload = true;
-		ESQ.PID.Kp--; /*= PID_dir.Kp - 0.1;*/
-		ESQ.Kp_old = ESQ.PID.Kp;
-		ESQ.reload = true;
-		break;
-	case 'I':
-		DIR.PID.Ki++; /* = PID_esq.Ki + 0.1;*/        /* Integral */
-		DIR.Ki_old = DIR.PID.Ki;
-		DIR.reload = true;
-		ESQ.PID.Ki++; /*= PID_dir.Ki + 0.1;*/
-		ESQ.Ki_old = ESQ.PID.Ki;
-		ESQ.reload = true;
-		break;
-	case 'i':
-		DIR.PID.Ki--; /*= PID_esq.Ki - 0.1;*/         /* Integral */
-		DIR.Ki_old = DIR.PID.Ki;
-		DIR.reload = true;
-		ESQ.PID.Ki--; /*= PID_dir.Ki - 0.1;*/
-		ESQ.Ki_old = ESQ.PID.Ki;
-		ESQ.reload = true;
-		break;
-	case 'D':
-		DIR.PID.Kd++; /*= PID_esq.Kd + 0.1; */        /* Derivative */
-		DIR.Kd_old = DIR.PID.Kd;
-		DIR.reload = true;
-		ESQ.PID.Kd++; /*= PID_dir.Kd + 0.1;*/
-		ESQ.Kd_old = ESQ.PID.Kd;
-		ESQ.reload = true;
-		break;
-	case 'd':
-		DIR.PID.Kd--; /* = PID_esq.Kd - 0.1;*/        /* Derivative */
-		DIR.Kd_old = DIR.PID.Kd;
-		DIR.reload = true;
-		ESQ.PID.Kd--; /*= PID_dir.Kd - 0.1;*/
-		ESQ.Kd_old = ESQ.PID.Kd;
-		ESQ.reload = true;
-		break;
-	}
-/*	j=0;
-	for(i=0;i<5;i++){
-		if(UART1_rxBuffer[i] != 10){
-			to_send[j] = UART1_rxBuffer[i];
-			j++;
-		}
-	}
-	osMessageQueuePut(Bluetooth_comandsHandle, &to_send, osPriorityRealtime, 0U);
-	memset(UART1_rxBuffer, 0x0, 5);
-	memset(to_send, 0x0, 5);*/
-}
 /* USER CODE END Application */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
