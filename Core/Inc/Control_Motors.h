@@ -28,20 +28,22 @@ typedef struct{
 	double DIREITA;
 }Velocidades;
 
+double get_speed(uint8_t motor);
 void adjust_PWM(double DC, uint8_t motor);
 uint32_t time_wait_ms(uint8_t distancia, double vel);
 void init_motors(double rpm);
 void stop(void);
 void re(double rpm);
+void re_dist(double rpm, double distance);
 void frente(double rpm);
 void direita(double rpm);
 void esquerda(double rpm);
 void rot_dir(double rpm, uint8_t angle);
 void rot_esq(double rpm, uint8_t angle);
-double get_speed(uint8_t motor);
-
 void rotacao_D(void);
 void rotacao_E(void);
+
+
 
 
 #endif /* INC_CONTROL_MOTORS_H_ */
