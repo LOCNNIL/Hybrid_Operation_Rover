@@ -74,17 +74,17 @@ typedef struct{
 #define TURN_OFF_MANUAL		(1<<3)	// 0b00000000000000000000000000001000	#08
 
 /* Choose of PID parameters for DIR motor */
-#define PID_DIR_KP	2				/* Proporcional */
-#define PID_DIR_KI	0.005			/* Integral */
-#define PID_DIR_KD	0.005			/* Derivative */
+#define PID_DIR_KP	2.01			/* Proporcional */
+#define PID_DIR_KI	0.006			/* Integral */
+#define PID_DIR_KD	0.008			/* Derivative */
 /* Choose of PID parameters for ESQ motor */
-#define PID_ESQ_KP	2				/* Proporcional */
+#define PID_ESQ_KP	2.01				/* Proporcional */
 #define PID_ESQ_KI	0.005			/* Integral */
-#define PID_ESQ_KD	0.005			/* Derivative */
+#define PID_ESQ_KD	0.008			/* Derivative */
 /*#define PID_ESQ_KP	2.1				 Proporcional
 #define PID_ESQ_KI	0.004			 Integral
 #define PID_ESQ_KD	0.009			 Derivative */
-#define FS				10			/*Sampling Frequency*/
+#define FS				2			/*Sampling Frequency*/
 #define TIMEHOLD		500		/*Sampling Period in ms*/
 #define true			1
 #define false			0
@@ -118,7 +118,7 @@ uint32_t ERROR_COUNT = 0;
 
 /*Motor Velocity Variables*/
 pulsos count_pulsos;
-static double veloc = 80; /*[RPM]*/
+static double veloc = 70; /*[RPM]*/
 RPM_mensures_t RPM;
 
 /*Infrared Sensor Variables*/
@@ -320,13 +320,7 @@ void MX_FREERTOS_Init(void) {
 void Autonomus(void *argument)
 {
   /* USER CODE BEGIN Autonomus */
-	/*static double veloc = 8;*/
-	/*	static GPIO_PinState pin_dir;
-	 static GPIO_PinState pin_esq;
-	 static GPIO_PinState pin_re;*/
-	static uint8_t min_dist = 10;
 	static uint32_t decisao;
-
 	const uint8_t REFdebounce = 5;
 	static uint8_t in1_0_dir = 0;
 	static uint8_t in1_1_dir = 0;
@@ -334,19 +328,15 @@ void Autonomus(void *argument)
 	static uint8_t in1_1_esq = 0;
 	static uint8_t in1_0_re = 0;
 	static uint8_t in1_1_re = 0;
-
 	static const uint8_t distancia = 10;
 	static const uint8_t angulo_90 = 45;
 	static const uint8_t angulo_60 = 30;
-
 	HAL_TIM_PWM_Start(&htim1, MOTOR_ESQ);
 	osDelay(10);
 	HAL_TIM_PWM_Start(&htim1, MOTOR_DIR);
 	osDelay(10);
 	init_motors(veloc);
 	frente(veloc);
-/*	set_speed(12,M_ESQ);
-	set_speed(12,M_DIR);*/
 
 	/* Infinite loop */
 	for (;;) {
@@ -356,17 +346,14 @@ void Autonomus(void *argument)
 			stop();
 			decisao = HAL_GetTick(); /*Consulta o tick atual: "Olha a hora"*/
 			if ((decisao % 2) == 0) {
-				re(veloc);
-				osDelay(time_wait_ms(distancia, veloc));
+				re_dist(veloc,distancia);
 				rot_esq(veloc,angulo_90);
 				frente(veloc);
 			} else {
-				re(veloc);
-				osDelay(time_wait_ms(distancia, veloc));
+				re_dist(veloc,distancia);
 				rot_dir(veloc,angulo_90);
 				frente(veloc);
 			}
-
 		}
 		if (pin_re == GPIO_PIN_RESET) {
 
@@ -379,7 +366,6 @@ void Autonomus(void *argument)
 				osDelay(time_wait_ms(distancia, veloc));
 				count_re++;
 			}
-
 		} else {
 			in1_0_re = 0;
 			in1_1_re++;
@@ -394,11 +380,9 @@ void Autonomus(void *argument)
 			in1_1_dir = 0;
 			if (in1_0_dir >= REFdebounce) {
 				in1_1_dir = REFdebounce + 1;
-
 				/*Confirmado acionamento*/
 				stop();
-				re(veloc);
-				osDelay(time_wait_ms(distancia, veloc));
+				re_dist(veloc, distancia);
 				rot_esq(veloc,angulo_60);
 				frente(veloc);
 				count_dir++;
@@ -417,8 +401,7 @@ void Autonomus(void *argument)
 			if (in1_0_esq >= REFdebounce) {
 				in1_1_esq = REFdebounce + 1;
 				stop();
-				re(veloc);
-				osDelay(time_wait_ms(distancia, veloc));
+				re_dist(veloc, distancia);
 				rot_dir(veloc,angulo_60);
 				frente(veloc);
 				count_esq++;
